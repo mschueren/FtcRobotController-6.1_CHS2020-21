@@ -30,7 +30,6 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
-import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -39,7 +38,6 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DigitalChannel;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.hardware.VoltageSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.ReadWriteFile;
 
@@ -65,9 +63,9 @@ import java.util.List;
  * IMPORTANT: In order to use this OpMode, you need to obtain your own Vuforia license key as
  * is explained below.
  */
-@Autonomous(name = "RedAutoV3", group = "TFOdometry")
+@Autonomous(name = "Red Parking", group = "TFOdometry")
 //@Disabled
-public class StandardRedAuto extends LinearOpMode {
+public class RedAutoParking extends LinearOpMode {
     private static final String TFOD_MODEL_ASSET = "UltimateGoal.tflite";
     private static final String LABEL_FIRST_ELEMENT = "Quad";
     private static final String LABEL_SECOND_ELEMENT = "Single";
@@ -200,38 +198,12 @@ public class StandardRedAuto extends LinearOpMode {
             globalPositionUpdate.reverseLeftEncoder();
             //globalPositionUpdate.reverseNormalEncoder();
 
-            // starting postion for linear actuators
-            launcherAngle.setPosition(.43);
-            launcherAngleR.setPosition(.43);
-            //hinge(true); testing
-
-            //**GO TO BOX INSTRUCTIONS + DELIVER WOBBLE GOAL TO CORRECT BOX**
-             goToBoxDeliverWobble(123,31,true, 0);
-             sleep(1000);
-            launch(); //start launcher motors
-            sleep(750); //make sure launchers are powered up enough
-            powershot(); // first powershot
-//            collector.setPower(-1);
-            powershot(); // second powershot
-            powershot(); // third powershot
-//            collector.setPower(0);
-            collectorWheel.setPower(0); // stop collector wheel in case it is still running
-             /*^end of powershot shooting^*/
-             launchSetZero(); // stop launchers
-             goToPositionSetZero(70, 66.5, .5, 0, 3);//go sideways to position far left from wobble goal
-             goToPositionSlowDown(70, 13, .5, 0, 8);//go backwards a little far away from wobble goal
-             goToPositionSetZero(82, 15, .4, 0, 1);//go right towards wobble goal to grip
-             grip(true);// grip wobble goal
-             sleep(750);// make sure wobble goal is gripped
-             goToBoxDeliverWobble(76.5, 61, false, 6);//go back to box to deliver second wobble goal (go to position, lift arm higher, ungrip)
-             sleep(750);// make sure wobble goal is delivered
              goToPositionSetZero(80,80,.9,0,2);//parking behind white
 
             String ContentsToWriteToFile = (globalPositionUpdate.returnXCoordinate()/COUNTS_PER_INCH) + " " + (globalPositionUpdate.returnYCoordinate()/COUNTS_PER_INCH) + " " + (globalPositionUpdate.returnOrientation());
             ReadWriteFile.writeFile(TeleOpStartingPos, ContentsToWriteToFile);
             ReadWriteFile.writeFile(RingSensorData, ringFileContents);
 
-            goToPositionSlowDown(111, 24, .6, 0, 2); // go back to starting position for programmers testing ease :)
 
 
         }
@@ -504,7 +476,9 @@ public class StandardRedAuto extends LinearOpMode {
                 hinge(true);
             } //hinge arm out to deliver
             else{
-                hinge(-2500); //second wobble goal bring arm a bit up
+                if(box=="c") {
+                    hinge(-2900); //second wobble goal bring arm a bit up
+                }
             }
             grip(false); //ungrip wobble goal to release and deliver
 

@@ -62,7 +62,7 @@ import java.io.File;
  */
 @TeleOp(name = "Standard Tele Op", group = "Example")
 //@Disabled
-public class StandardTeleOpV2 extends OpMode {
+public class TeleOpMain extends OpMode {
 
     private ElapsedTime runtime = new ElapsedTime(ElapsedTime.Resolution.SECONDS);
     private ElapsedTime timer = new ElapsedTime(ElapsedTime.Resolution.SECONDS);
@@ -108,6 +108,7 @@ public class StandardTeleOpV2 extends OpMode {
     boolean launcherCanToggle = true;
     boolean gripCanToggle = true;
     boolean isCollectorRunning = false;
+    boolean collectorReverseCanToggle = false, collectorReverseToggle = false;
     int rings = 0;
     boolean topCurrent = false;
     boolean topPrevious = false;
@@ -120,6 +121,8 @@ public class StandardTeleOpV2 extends OpMode {
 
     boolean robotPerspective = false;
     double fieldReference = 0.0;
+    boolean perspectiveToggle = false;
+    boolean perspectiveCanToggle = false;
 
     @Override
     public void init() {
@@ -209,7 +212,7 @@ public class StandardTeleOpV2 extends OpMode {
     @Override
     public void start() {
         runtime.reset();
-        globalPositionUpdate = new OdometryGlobalCoordinatePosition(verticalLeft, verticalRight, horizontal, COUNTS_PER_INCH, 75, startX, startY, startOrientation);
+        globalPositionUpdate = new OdometryGlobalCoordinatePosition(verticalLeft, verticalRight, horizontal, COUNTS_PER_INCH, 75, 0,0,0);//startX, startY, startOrientation);
         positionThread = new Thread(globalPositionUpdate);
 
         positionThread.start();
@@ -284,11 +287,11 @@ public class StandardTeleOpV2 extends OpMode {
             collectorWheel.setPower(-1);
             isWheelRunning = true;
         }
-        else if(intakeDistanceSensor.getDistance(DistanceUnit.INCH)<6.5&&intakeDistanceSensor.getDistance(DistanceUnit.INCH)>0 &&rings < 3){
-            collectorWheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            collectorWheel.setPower(-1);
-            timer.reset();
-        }
+//        else if(intakeDistanceSensor.getDistance(DistanceUnit.INCH)<6.5&&intakeDistanceSensor.getDistance(DistanceUnit.INCH)>0 &&rings < 3){
+//            collectorWheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+//            collectorWheel.setPower(-1);
+//            timer.reset();
+//        }
         else if(gamepad2.right_bumper){
             collectorWheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
             collectorWheel.setPower(1);
@@ -299,21 +302,21 @@ public class StandardTeleOpV2 extends OpMode {
             collectorWheel.setPower(0);
             isWheelRunning = false;
         }
-
-        if(timer.time()>2&&timer.time()<2.05){
-            rings++;
-            collectorWheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            collectorWheel.setPower(0);
-        }
-        topPrevious = topCurrent;
-        topCurrent = ringStopperSensor.getDistance(DistanceUnit.CM)<4.6&&ringStopperSensor.getDistance(DistanceUnit.CM)>0;
-        if (topPrevious && !topCurrent){
-            rings--;
-        }
-        if (ringStopperSensor.getDistance(DistanceUnit.CM)<4.6&&ringStopperSensor.getDistance(DistanceUnit.CM)>0 && islaunchRunning){
-            moveCollectorWheel();
-            isWheelRunning = false;
-        }
+//
+//        if(timer.time()>2&&timer.time()<2.05){
+//            rings++;
+//            collectorWheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+//            collectorWheel.setPower(0);
+//        }
+//        topPrevious = topCurrent;
+//        topCurrent = ringStopperSensor.getDistance(DistanceUnit.CM)<4.6&&ringStopperSensor.getDistance(DistanceUnit.CM)>0;
+//        if (topPrevious && !topCurrent){
+//            rings--;
+//        }
+//        if (ringStopperSensor.getDistance(DistanceUnit.CM)<4.6&&ringStopperSensor.getDistance(DistanceUnit.CM)>0 && islaunchRunning){
+//            moveCollectorWheel();
+//            isWheelRunning = false;
+//        }
 //        else if(gamepad2.left_trigger>.05){
 //            isWheelRunning = true;
 //            collectorwheelthread.moveCollectorWheel(8, false);
@@ -325,17 +328,17 @@ public class StandardTeleOpV2 extends OpMode {
 //            collectorWheel.setPower(-.9);
 //        }
 
-        if (gamepad2.dpad_up){
-            launcherAngleR.setPosition(.45);
-            launcherAngle.setPosition(.45);
-        }
         if (gamepad2.dpad_down){
+            launcherAngleR.setPosition(.33);
+            launcherAngle.setPosition(.33);
+        }
+        if (gamepad2.dpad_left){
             launcherAngleR.setPosition(.3);
             launcherAngle.setPosition(.3);
         }
-        if (gamepad2.dpad_left){
-            launcherAngleR.setPosition(.4);
-            launcherAngle.setPosition(.4);
+        if (gamepad2.dpad_up){
+            launcherAngleR.setPosition(.36);
+            launcherAngle.setPosition(.36);
         }
         if(gamepad2.dpad_right){
             if(ringStopperCanToggle) //make sure that the code doesn't just toggle the thing every iteration as long as the trigger's held
@@ -382,7 +385,28 @@ public class StandardTeleOpV2 extends OpMode {
         {
             collectorCanToggle=true;
         }
-
+        if(gamepad2.left_trigger>.05){
+            if(collectorReverseCanToggle) //make sure that the code doesn't just toggle the thing every iteration as long as the trigger's held
+            {
+                collectorReverseCanToggle=false;
+                //if the collector is currently running, run this code to turn it off:
+                if(collectorReverseToggle)
+                {
+                    collector.setPower(0); //turn off the collector motor
+                    collectorReverseToggle=false; //remember that the collector motor has been turned off
+                }
+                //if the collector isn't currently running, run this code to turn it on:
+                else
+                {
+                    collector.setPower(.9); //turn on the collector motor
+                    collectorReverseToggle=true; //remember that the collector motor has been turned on
+                }
+            }
+        }
+        else
+        {
+            collectorReverseCanToggle=true;
+        }
          if(gamepad2.x)
          {
              if(launcherCanToggle) //make sure that the code doesn't just toggle the thing every iteration as long as the x is held
@@ -517,8 +541,28 @@ public class StandardTeleOpV2 extends OpMode {
         else {
             driveRotation = 0;
         }
-        if (gamepad1.dpad_up) {robotPerspective = true;}
-        if (gamepad1.dpad_down) {robotPerspective = false;}
+        if(gamepad1.right_bumper){
+            if(perspectiveCanToggle) //make sure that the code doesn't just toggle the thing every iteration as long as the trigger's held
+            {
+                perspectiveCanToggle=false;
+                if(perspectiveToggle)
+                {//if the motor is currently running, turn it off
+                    robotPerspective = true; //turn off the motor
+                    perspectiveToggle=false; //remember that the collector motor has been turned off
+                }
+                else
+                {//if the motor isn't currently running, turn it on
+                    robotPerspective = false; //turn on motor
+                    perspectiveToggle=true; //remember that the motor has been turned on
+                }
+            }
+        }
+        else
+        {
+            perspectiveCanToggle=true;
+        }
+//        if (gamepad1.dpad_up) {robotPerspective = true;}
+//        if (gamepad1.dpad_down) {robotPerspective = false;}
         if (robotPerspective) { //Controls are mapped to the robot perspective
             fieldReference = 0;
             //Positive values for x axis are joystick right
@@ -632,16 +676,19 @@ public class StandardTeleOpV2 extends OpMode {
 //            isWheelRunning = false;
 //        }
 
-        telemetry.addData("rings: ",rings);
+//        telemetry.addData("rings: ",rings);
         telemetry.addData("Status", "Run Time: " + runtime.toString());
-        telemetry.addData("Wobble counts", brMotor.getCurrentPosition());
+//        telemetry.addData("Wobble counts", brMotor.getCurrentPosition());
         telemetry.addData("StartingPostionX", globalPositionUpdate.returnXCoordinate()/COUNTS_PER_INCH);
         telemetry.addData("StartingPostionY", globalPositionUpdate.returnYCoordinate()/COUNTS_PER_INCH);
-        telemetry.addData("intake distance Sensor: ", String.format("%.01f cm",intakeDistanceSensor.getDistance(DistanceUnit.CM)));
-        telemetry.addData("sensor timer: ", timer.time());
-        telemetry.addData("previous: ", topPrevious);
-        telemetry.addData("current", topCurrent);
-        telemetry.addData("Distance ring stopper: ", ringStopperSensor.getDistance(DistanceUnit.CM));
+//        telemetry.addData("intake distance Sensor: ", String.format("%.01f cm",intakeDistanceSensor.getDistance(DistanceUnit.CM)));
+//        telemetry.addData("sensor timer: ", timer.time());
+//        telemetry.addData("previous: ", topPrevious);
+//        telemetry.addData("current", topCurrent);
+//        telemetry.addData("Distance ring stopper: ", ringStopperSensor.getDistance(DistanceUnit.CM));
+        telemetry.addData("Launcher angle: ", launcherAngleR.getPosition());
+        telemetry.addData("Launcher angle: ", launcherAngle.getPosition());
+        telemetry.addData("Robot angle: ", getIntegratedHeading());
     }
 
 
@@ -778,8 +825,8 @@ public class StandardTeleOpV2 extends OpMode {
         }
     }
     public void launch(){
-        launcherL.setVelocity(725);
-        launcherR.setVelocity(-775);
+        launcherL.setVelocity(575);
+        launcherR.setVelocity(-375);
         islaunchRunning = true;
     }
     public void launchSetZero(){
