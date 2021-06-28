@@ -49,7 +49,6 @@ import com.qualcomm.robotcore.util.ReadWriteFile;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
-import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 import org.firstinspires.ftc.robotcore.internal.system.AppUtil;
 
@@ -59,9 +58,9 @@ import java.io.File;
 /**
  * Demonstrates empty OpMode
  */
-@TeleOp(name = "Gwyn+Evie", group = "Example")
+@TeleOp(name = "Tele Op Choose", group = "Example")
 //@Disabled
-public class Gwyn_EvieDriveMode extends OpMode {
+public class TeleOpCases extends OpMode {
 
     private ElapsedTime runtime = new ElapsedTime(ElapsedTime.Resolution.SECONDS);
     private ElapsedTime timer = new ElapsedTime(ElapsedTime.Resolution.SECONDS);
@@ -74,7 +73,7 @@ public class Gwyn_EvieDriveMode extends OpMode {
     Servo wobbleArmGripL, wobbleArmGripR, ringStopper;
     CRServo wobbleArmHingeL, wobbleArmHingeR;
     DcMotor verticalLeft, verticalRight, horizontal;
-    DistanceSensor intakeDistanceSensor, ringStopperSensor;
+    DistanceSensor intakeDistanceSensor, outDistanceSensor, ringStopperSensor;
 
     double frPower=0, flPower=0, brPower=0, blPower=0, collectorPower, launchPower;
     double maxMotorPower=0;
@@ -92,15 +91,22 @@ public class Gwyn_EvieDriveMode extends OpMode {
     OdometryGlobalCoordinatePosition globalPositionUpdate;
 
     Thread positionThread;
+    boolean buttonPressed = false;
+    boolean AIlaunch = false;
+    double servoAdd = .4;
+    boolean stopSensor = false;
+    boolean isWheelRunning = false;
     boolean islaunchRunning= false;
     boolean lockDrive = false;
     boolean isCollectorWheel = false;
     boolean launchToggle = false;
     boolean gripToggle = false;
-    boolean collectorToggle = false, collectorCanToggle = true, collectorReverseCanToggle = true, collectorReverseToggle = true;
+    boolean collectorToggle = false;
+    boolean collectorCanToggle = true;
     boolean launcherCanToggle = true;
     boolean gripCanToggle = true;
     boolean isCollectorRunning = false;
+    boolean collectorReverseCanToggle = false, collectorReverseToggle = false;
     int rings = 0;
     boolean topCurrent = false;
     boolean topPrevious = false;
@@ -113,9 +119,13 @@ public class Gwyn_EvieDriveMode extends OpMode {
 
     boolean robotPerspective = false;
     double fieldReference = 0.0;
-    boolean isWheelRunning = false;
-    boolean perspectiveCanToggle = false;
     boolean perspectiveToggle = false;
+    boolean perspectiveCanToggle = false;
+
+    String allianceColor = "", joystickPref = "";
+    boolean selectionButtonPressed = false;
+    int caseNum = 0, joystickMultiplier = 0;
+    float joystickSideX = 0, joystickSideY = 0;
 
     @Override
     public void init() {
@@ -187,17 +197,46 @@ public class Gwyn_EvieDriveMode extends OpMode {
     @Override
     public void init_loop() {
         gyroAngles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-        telemetry.addData("1", "Integrated Heading: " + getIntegratedHeading());
+//        telemetry.addData("1", "Integrated Heading: " + getIntegratedHeading());
+        if(gamepad1.a&&!selectionButtonPressed){
+            caseNum++;//toggle up from case 0 to case...
+            selectionButtonPressed=!selectionButtonPressed;
+        }
+        else if(gamepad1.y&&!selectionButtonPressed){
+            caseNum--;
+            selectionButtonPressed=!selectionButtonPressed;
+        }
+        else if(!gamepad1.a&&!gamepad1.y&&selectionButtonPressed){
+            selectionButtonPressed=!selectionButtonPressed;
+        }
+        switch (caseNum){
+            case 0:
+                if(gamepad1.b){ allianceColor = "red"; joystickMultiplier = 1;}
+                else if (gamepad1.x){ allianceColor = "blue"; joystickMultiplier = -1;}
+                telemetry.addData(" > Set Alliance Color", "Current: " +allianceColor);
+                telemetry.addData("B Button = Red", "X Button = Blue");
+                break;
+            case 1:
+                if(gamepad1.b) { joystickPref = "Left"; }
+                if(gamepad1.x) { joystickPref = "Right"; }
+                telemetry.addData(" > Set Joystick Preference", "Current: " +joystickPref);
+                telemetry.addData("B Button = Right", "X Button = Right");
+                break;
+            default:
+                caseNum = caseNum < 0 ? 0 : caseNum;
+                caseNum = caseNum > 1 ? 1 : caseNum;
+                break;
+        }
 //        telemetry.addData("2", "heading: " + globalPositionUpdate.returnOrientation());
 //        telemetry.addData("StartingPostionX", globalPositionUpdate.returnXCoordinate()/COUNTS_PER_INCH);
 //        telemetry.addData("StartingPostionY", globalPositionUpdate.returnYCoordinate()/COUNTS_PER_INCH);
         // telemetry.addData("1 Right Motor Pos", frMotor.getCurrentPosition());
         // telemetry.addData("2 Left Motor Pos", flMotor.getCurrentPosition());
-
-
-        telemetry.addData("StartingPostionX", startX);
-        telemetry.addData("StartingPostionY", startY);
-        telemetry.addData("StartingOrientation", startOrientation);
+//
+//
+//        telemetry.addData("StartingPostionX", startX);
+//        telemetry.addData("StartingPostionY", startY);
+//        telemetry.addData("StartingOrientation", startOrientation);
         telemetry.update();
     }
 
@@ -219,64 +258,64 @@ public class Gwyn_EvieDriveMode extends OpMode {
     public void loop() {
 
         gyroAngles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-        isWheelRunning = collectorWheel.getPower() != 0;
 
-        if(gamepad1.dpad_up){
-            correctOdometry(54, 128);//remote upper left corner
-        }
-        else if(gamepad1.dpad_right){
-            correctOdometry(128, 128);//remote upper right corner
-        }
-        else if(gamepad1.dpad_left)
-        {
-            correctOdometry(54, 8.5);//remote lower left corner
-        }
-        else if(gamepad1.dpad_down){
-            correctOdometry(128,8.5);//remote lower right corner
-        }
         if(gamepad2.left_bumper){
             collectorWheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
             collectorWheel.setPower(-1);
+            isWheelRunning = true;
         }
-        else if(gamepad2.left_trigger>.05){
+//        else if(intakeDistanceSensor.getDistance(DistanceUnit.INCH)<6.5&&intakeDistanceSensor.getDistance(DistanceUnit.INCH)>0 &&rings < 3){
+//            collectorWheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+//            collectorWheel.setPower(-1);
+//            timer.reset();
+//        }
+        else if(gamepad2.right_bumper){
             collectorWheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
             collectorWheel.setPower(1);
-        }
-        else if(intakeDistanceSensor.getDistance(DistanceUnit.INCH)<6.5&&intakeDistanceSensor.getDistance(DistanceUnit.INCH)>0 &&rings < 3){
-            collectorWheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            collectorWheel.setPower(-1);
-            timer.reset();
+            isWheelRunning = true;
         }
         else{
             collectorWheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
             collectorWheel.setPower(0);
+            isWheelRunning = false;
         }
+//
+//        if(timer.time()>2&&timer.time()<2.05){
+//            rings++;
+//            collectorWheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+//            collectorWheel.setPower(0);
+//        }
+//        topPrevious = topCurrent;
+//        topCurrent = ringStopperSensor.getDistance(DistanceUnit.CM)<4.6&&ringStopperSensor.getDistance(DistanceUnit.CM)>0;
+//        if (topPrevious && !topCurrent){
+//            rings--;
+//        }
+//        if (ringStopperSensor.getDistance(DistanceUnit.CM)<4.6&&ringStopperSensor.getDistance(DistanceUnit.CM)>0 && islaunchRunning){
+//            moveCollectorWheel();
+//            isWheelRunning = false;
+//        }
+//        else if(gamepad2.left_trigger>.05){
+//            isWheelRunning = true;
+//            collectorwheelthread.moveCollectorWheel(8, false);
+//            collectorWheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+//            isWheelRunning = false;
+//        }
+//        if(gamepad2.right_bumper&&!isWheelRunning){
+//            isCollectorWheel = true;
+//            collectorWheel.setPower(-.9);
+//        }
 
-        if(timer.time()>2&&timer.time()<2.05){
-            rings++;
-            collectorWheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            collectorWheel.setPower(0);
-        }
-        topPrevious = topCurrent;
-        topCurrent = ringStopperSensor.getDistance(DistanceUnit.CM)<4.6&&ringStopperSensor.getDistance(DistanceUnit.CM)>0;
-        if (topPrevious && !topCurrent){
-            rings--;
-        }
-        if (ringStopperSensor.getDistance(DistanceUnit.CM)<4.6&&ringStopperSensor.getDistance(DistanceUnit.CM)>0 && islaunchRunning){
-            moveCollectorWheel();
-        }
-
-        if (gamepad2.dpad_up){
-            launcherAngleR.setPosition(.45);
-            launcherAngle.setPosition(.45);
-        }
         if (gamepad2.dpad_down){
+            launcherAngleR.setPosition(.33);
+            launcherAngle.setPosition(.33);
+        }
+        if (gamepad2.dpad_left){
             launcherAngleR.setPosition(.3);
             launcherAngle.setPosition(.3);
         }
-        if (gamepad2.dpad_left){
-            launcherAngleR.setPosition(.4);
-            launcherAngle.setPosition(.4);
+        if (gamepad2.dpad_up){
+            launcherAngleR.setPosition(.36);
+            launcherAngle.setPosition(.36);
         }
         if(gamepad2.dpad_right){
             if(ringStopperCanToggle) //make sure that the code doesn't just toggle the thing every iteration as long as the trigger's held
@@ -323,7 +362,7 @@ public class Gwyn_EvieDriveMode extends OpMode {
         {
             collectorCanToggle=true;
         }
-        if(gamepad2.right_bumper){
+        if(gamepad2.left_trigger>.05){
             if(collectorReverseCanToggle) //make sure that the code doesn't just toggle the thing every iteration as long as the trigger's held
             {
                 collectorReverseCanToggle=false;
@@ -345,7 +384,7 @@ public class Gwyn_EvieDriveMode extends OpMode {
         {
             collectorReverseCanToggle=true;
         }
-        if(gamepad2.x)
+         if(gamepad2.x)
          {
              if(launcherCanToggle) //make sure that the code doesn't just toggle the thing every iteration as long as the x is held
             {
@@ -372,7 +411,6 @@ public class Gwyn_EvieDriveMode extends OpMode {
          {
              launcherCanToggle=true;
          }
-
         if(gamepad2.b)
         {
             if(gripCanToggle) //make sure that the code doesn't just toggle the thing every iteration as long as the x is held
@@ -441,10 +479,6 @@ public class Gwyn_EvieDriveMode extends OpMode {
             lockDrive = false;
         }
 
-        //y = Range.clip(gamepad1.left_stick_x, -1, 1);
-        //x = Range.clip(gamepad1.left_stick_y, -1, 1);
-        //joystickAngle = Math.atan2(-x, y);
-        //joystickAngle360 = joystickAngle >= 0 ? joystickAngle : (2 * Math.PI) + joystickAngle;
         if (gamepad1.right_trigger > .05 || gamepad1.left_trigger > .05) {
             driveRotation = gamepad1.left_trigger - gamepad1.right_trigger;
             desiredRobotHeading = getIntegratedHeading();
@@ -474,33 +508,27 @@ public class Gwyn_EvieDriveMode extends OpMode {
         {
             perspectiveCanToggle=true;
         }
-//        if (gamepad1.dpad_up) {robotPerspective = true;}
-//        if (gamepad1.dpad_down) {robotPerspective = false;}
+        if(joystickPref=="Left"){joystickSideX = gamepad1.left_stick_x; joystickSideY=gamepad1.left_stick_y;}
+        if(joystickPref=="Right"){joystickSideX = gamepad1.right_stick_x; joystickSideY=gamepad1.right_stick_y;}
         if (robotPerspective) { //Controls are mapped to the robot perspective
             fieldReference = 0;
             //Positive values for x axis are joystick right
             //Positive values for y axis are joystick down
-            y = Range.clip(-gamepad1.left_stick_y,-1,1);
-            x = Range.clip(-gamepad1.left_stick_x,-1,1);
+            y = Range.clip(-joystickSideY*joystickMultiplier,-1,1);
+            x = Range.clip(-joystickSideX*joystickMultiplier,-1,1);
             joystickAngle = Math.atan2(x,y);
         } else {   //Controls are mapped to the field
             fieldReference = desiredRobotHeading;
             //Positive values for x axis are joystick right
             //Positive values for y axis are joystick down
-            y = Range.clip(gamepad1.left_stick_x,-1,1);
-            x = Range.clip(-gamepad1.left_stick_y,-1,1);
+            y = Range.clip(joystickSideX*joystickMultiplier,-1,1);
+            x = Range.clip(-joystickSideY*joystickMultiplier,-1,1);
             joystickAngle = Math.atan2(x,y);
             // joystickAngle360 = joystickAngle >= 0 ? joystickAngle : (2*Math.PI) + joystickAngle;
         }
         joystickAngle360 = joystickAngle >= 0 ? joystickAngle : (2*Math.PI) + joystickAngle;
         driveSpeed = Range.clip(Math.sqrt(y * y + x * x), -1, 1);
 
-
-//        flPower = Math.cos(joystickAngle360 - Math.toRadians(desiredRobotHeading) + Math.PI / 4);
-//        frPower = Math.sin(joystickAngle360 - Math.toRadians(desiredRobotHeading) + Math.PI / 4);
-//        blPower = Math.sin(joystickAngle360 - Math.toRadians(desiredRobotHeading) + Math.PI / 4);
-//        brPower = Math.cos(joystickAngle360 - Math.toRadians(desiredRobotHeading) + Math.PI / 4);
-//        maxMotorPower = Math.max(Math.max(Math.max(Math.abs(flPower), Math.abs(frPower)), Math.abs(blPower)), Math.abs(brPower));
         flPower = Math.cos(joystickAngle360 - Math.toRadians(fieldReference) + Math.PI / 4);
         frPower = Math.sin(joystickAngle360 - Math.toRadians(fieldReference) + Math.PI / 4);
         blPower = Math.sin(joystickAngle360 - Math.toRadians(fieldReference) + Math.PI / 4);
@@ -536,20 +564,21 @@ public class Gwyn_EvieDriveMode extends OpMode {
 
         if(!lockDrive)
         {
-
+            if(gamepad1.dpad_up){
+                goToPositionSlowDown(111, 70, .7, 0); // go to shooting position
+            }
             if(gamepad1.x){
-                goToPositionSlowDown(89, 67, .7, 0, 2);
-                 //power-shot 1
+                goToAngle(111,70,.7,-16, 1 );//angle robot using IMU
+                 //powershot 1
             }
             else if(gamepad1.a){
-                goToPositionSlowDown(82, 67, .7, 0, 2); //powershot 2
+                goToAngle(111,70,.7,-20.5, 1 );
             }
             else if(gamepad1.b){
-                goToPositionSlowDown(75, 67, .7, 0, 2); //powershot 3
+                goToAngle(111,70,.7,-25, 1 ); //powershot 3
             }
             else if(gamepad1.y){
-                goToPositionSlowDown(105, 39, .7, 0, 2);
-                 // launching
+                goToPositionSlowDown(111,60,.6,0);// launching high tower
             }
             else if(gamepad1.left_bumper){
                 flMotor.setPower(flPower*.5);
@@ -572,17 +601,16 @@ public class Gwyn_EvieDriveMode extends OpMode {
                 brMotor.setPower(0);
         }
 
-
-        telemetry.addData("rings: ",rings);
+//        telemetry.addData("rings: ",rings);
         telemetry.addData("Status", "Run Time: " + runtime.toString());
-        telemetry.addData("Wobble counts", brMotor.getCurrentPosition());
+//        telemetry.addData("Wobble counts", brMotor.getCurrentPosition());
         telemetry.addData("StartingPostionX", globalPositionUpdate.returnXCoordinate()/COUNTS_PER_INCH);
         telemetry.addData("StartingPostionY", globalPositionUpdate.returnYCoordinate()/COUNTS_PER_INCH);
-        telemetry.addData("intake distance Sensor: ", String.format("%.01f cm",intakeDistanceSensor.getDistance(DistanceUnit.CM)));
-        telemetry.addData("sensor timer: ", timer.time());
-        telemetry.addData("previous: ", topPrevious);
-        telemetry.addData("current", topCurrent);
-        telemetry.addData("Distance ring stopper: ", ringStopperSensor.getDistance(DistanceUnit.CM));
+//        telemetry.addData("intake distance Sensor: ", String.format("%.01f cm",intakeDistanceSensor.getDistance(DistanceUnit.CM)));
+//        telemetry.addData("sensor timer: ", timer.time());
+//        telemetry.addData("previous: ", topPrevious);
+//        telemetry.addData("current", topCurrent);
+//        telemetry.addData("Distance ring stopper: ", ringStopperSensor.getDistance(DistanceUnit.CM));
     }
 
 
@@ -653,12 +681,75 @@ public class Gwyn_EvieDriveMode extends OpMode {
 
         }
     }
-    public void goToPositionSlowDown(double targetXPosition, double targetYPosition, double robotPower, double desiredRobotOrientation, double allowableDistanceError ){
+    public void goToPositionSlowDown(double targetXPosition, double targetYPosition, double robotPower, double desiredRobotOrientation){
         if (
         goToPosition(targetXPosition,targetYPosition,robotPower,desiredRobotOrientation,8)) {}
         if (
         goToPosition(targetXPosition,targetYPosition,robotPower-.3,desiredRobotOrientation,1)) {}
-        
+    }
+    public boolean goToAngle(double targetXPosition, double targetYPosition, double robotPower, double desiredRobotOrientation, double allowableAngleError ) {
+        targetXPosition *= COUNTS_PER_INCH;
+        isGoToPosition = true;
+        targetYPosition *= COUNTS_PER_INCH;
+        double blPower = 0; // motor speed
+        double brPower = 0; // motor speed
+        double flPower = 0; // motor speed
+        double frPower = 0; // motor speed
+        double pivotCorrectionAdj = .05; // constant to scale down pivot correction angle to work with setting powers for mecanum drive motors
+        double distanceToXTarget = targetXPosition - globalPositionUpdate.returnXCoordinate();
+        double distanceToYTarget = targetYPosition - globalPositionUpdate.returnYCoordinate();
+        double distance = Math.hypot(distanceToXTarget, distanceToYTarget);
+        if (desiredRobotOrientation<getIntegratedHeading()-allowableAngleError) { //correct heading too
+            distance = Math.hypot(distanceToXTarget, distanceToYTarget);
+            distanceToXTarget = targetXPosition - globalPositionUpdate.returnXCoordinate();
+            distanceToYTarget = targetYPosition - globalPositionUpdate.returnYCoordinate();
+            double robotMovementAngle = Math.toDegrees(Math.atan2(distanceToXTarget, distanceToYTarget));
+            double robotMovmentXComponent = calculateX(robotMovementAngle - globalPositionUpdate.returnOrientation(), robotPower);
+            double robotMovmentYComponent = calculateY(robotMovementAngle - globalPositionUpdate.returnOrientation(), robotPower);
+            double pivotCorrection = (desiredRobotOrientation - globalPositionUpdate.returnOrientation()) * pivotCorrectionAdj;
+            //double[] powers = {robotMovmentYComponent, robotMovmentYComponent, robotMovmentYComponent, robotMovmentYComponent};//array for powers
+            blPower = robotMovmentYComponent - robotMovmentXComponent + pivotCorrection;
+            flPower = robotMovmentYComponent + robotMovmentXComponent + pivotCorrection;
+            brPower = robotMovmentYComponent + robotMovmentXComponent - pivotCorrection;
+            frPower = robotMovmentYComponent - robotMovmentXComponent - pivotCorrection;
+            //set powers to motors to move
+            double maxMotorPower = Math.max(Math.max(Math.max(Math.abs(flPower), Math.abs(frPower)), Math.abs(blPower)), Math.abs(brPower));
+
+            if (Math.abs(maxMotorPower) > 1) {
+                flPower = (flPower / maxMotorPower) * robotPower;
+                frPower = (frPower / maxMotorPower) * robotPower;
+                blPower = (blPower / maxMotorPower) * robotPower;
+                brPower = (brPower / maxMotorPower) * robotPower;
+            } else if (Math.abs(maxMotorPower) < .03) {
+                flPower = 0;
+                frPower = 0;
+                blPower = 0;
+                brPower = 0;
+            }
+            flMotor.setPower(flPower);
+            frMotor.setPower(frPower);
+            blMotor.setPower(blPower);
+            brMotor.setPower(brPower);
+            telemetry.addData("X Position", globalPositionUpdate.returnXCoordinate() / COUNTS_PER_INCH);
+            telemetry.addData("Y Position", globalPositionUpdate.returnYCoordinate() / COUNTS_PER_INCH);
+            telemetry.addData("Orientation (Degrees)", globalPositionUpdate.returnOrientation());
+            telemetry.addData("XComponent: ", robotMovmentXComponent / .9);
+            telemetry.addData("YComponent: ", robotMovmentYComponent / .9);
+            telemetry.addData("Pivot Correction: ", pivotCorrection);
+            telemetry.addData("Gyro orientation: ", imu.getAngularOrientation().firstAngle);
+            telemetry.update();
+            isGoToPosition = true;
+            return false;
+        }
+        else{
+            flMotor.setPower(0);
+            frMotor.setPower(0);
+            blMotor.setPower(0);
+            brMotor.setPower(0);
+            isGoToPosition = false;
+            return true;
+
+        }
     }
     private double calculateX(double desiredAngle, double speed) {
         return Math.sin(Math.toRadians(desiredAngle)) * speed;
@@ -719,8 +810,8 @@ public class Gwyn_EvieDriveMode extends OpMode {
         }
     }
     public void launch(){
-        launcherL.setVelocity(725);
-        launcherR.setVelocity(-775);
+        launcherL.setVelocity(50);
+        launcherR.setVelocity(-25);
         islaunchRunning = true;
     }
     public void launchSetZero(){
@@ -734,16 +825,5 @@ public class Gwyn_EvieDriveMode extends OpMode {
          collectorWheel.setMode(DcMotor.RunMode.RUN_TO_POSITION);
          collectorWheel.setPower(-1);
      }
-    public void correctOdometry(double cornerX, double cornerY){
-        verticalLeft.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        verticalRight.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        horizontal.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-
-        verticalLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        verticalRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        horizontal.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        globalPositionUpdate = new OdometryGlobalCoordinatePosition(verticalLeft, verticalRight, horizontal, COUNTS_PER_INCH, 75, cornerX, cornerY, 0);
-
-    }
 
 }

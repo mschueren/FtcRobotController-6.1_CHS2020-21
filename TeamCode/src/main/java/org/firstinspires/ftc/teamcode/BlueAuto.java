@@ -29,6 +29,7 @@
 
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -45,7 +46,11 @@ import com.qualcomm.robotcore.util.ReadWriteFile;
 
 import org.firstinspires.ftc.robotcore.external.ClassFactory;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
+import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 import org.firstinspires.ftc.robotcore.external.navigation.VuforiaLocalizer;
 import org.firstinspires.ftc.robotcore.external.tfod.Recognition;
 import org.firstinspires.ftc.robotcore.external.tfod.TFObjectDetector;
@@ -66,7 +71,7 @@ import java.util.List;
  * is explained below.
  */
 @Autonomous(name = "Blue", group = "TFOdometry")
-//@Disabled
+@Disabled
 public class BlueAuto extends LinearOpMode {
     private static final String TFOD_MODEL_ASSET = "UltimateGoal.tflite";
     private static final String LABEL_FIRST_ELEMENT = "Quad";
@@ -82,6 +87,12 @@ public class BlueAuto extends LinearOpMode {
     final double CollectorWheelDiameter = 5;
     double CPICollectorWheel = CPRCollectorWheel/(CollectorWheelDiameter*3.1415);
     double launchPower = 0.0;
+
+    BNO055IMU imu;
+    int rotations = 0;
+    BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
+    double desiredHeading = 0.0;
+    Orientation gyroAngles;
 
     List<Recognition> updatedRecognitions;
     DcMotor frMotor, flMotor, brMotor, blMotor, collectorWheel, collector;
@@ -192,7 +203,7 @@ public class BlueAuto extends LinearOpMode {
 
 
         if (opModeIsActive()) { // Linear OpMode
-            globalPositionUpdate = new OdometryGlobalCoordinatePosition(verticalLeft, verticalRight, horizontal, COUNTS_PER_INCH, 75, 111, 8.5, 0.0);
+            globalPositionUpdate = new OdometryGlobalCoordinatePosition(verticalLeft, verticalRight, horizontal, COUNTS_PER_INCH, 75, 30, 8.5, 0.0);
             Thread positionThread = new Thread(globalPositionUpdate);
             positionThread.start();
 

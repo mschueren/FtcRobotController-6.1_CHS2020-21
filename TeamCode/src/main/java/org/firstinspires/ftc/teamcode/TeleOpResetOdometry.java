@@ -33,7 +33,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
 //package org.firstinspires.ftc.robotcontroller.external.samples;
 
 import com.qualcomm.hardware.bosch.BNO055IMU;
-import com.qualcomm.hardware.rev.RevColorSensorV3;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
@@ -50,7 +49,6 @@ import com.qualcomm.robotcore.util.ReadWriteFile;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
-import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 import org.firstinspires.ftc.robotcore.internal.system.AppUtil;
 
@@ -60,9 +58,9 @@ import java.io.File;
 /**
  * Demonstrates empty OpMode
  */
-@TeleOp(name = "Standard Tele Op", group = "Example")
+@TeleOp(name = "Tele Reset Odometry", group = "Example")
 //@Disabled
-public class TeleOpMain extends OpMode {
+public class TeleOpResetOdometry extends OpMode {
 
     private ElapsedTime runtime = new ElapsedTime(ElapsedTime.Resolution.SECONDS);
     private ElapsedTime timer = new ElapsedTime(ElapsedTime.Resolution.SECONDS);
@@ -83,7 +81,7 @@ public class TeleOpMain extends OpMode {
     double driveRotation = 0;
     double a, b, x, y, joystickAngle, joystickAngle360;
     double desiredRobotHeading;
-    int rotations = 0, wobbleEncoderCounts = 0;
+    int rotations = 0;
     final double COUNTS_PER_REV = 8192; // CPR for REV Through Bore Encoders
     final double WHEEL_DIAMETER = 2.3622; //in inches, 38mm for odometry aluminum omni wheels
     double COUNTS_PER_INCH = COUNTS_PER_REV / (WHEEL_DIAMETER * 3.1415);
@@ -121,9 +119,8 @@ public class TeleOpMain extends OpMode {
 
     boolean robotPerspective = false;
     double fieldReference = 0.0;
-    boolean perspectiveToggle = false, perspectiveCanToggle = false;
-
-    boolean isWobble = false;
+    boolean perspectiveToggle = false;
+    boolean perspectiveCanToggle = false;
 
     @Override
     public void init() {
@@ -135,7 +132,6 @@ public class TeleOpMain extends OpMode {
         collector = hardwareMap.dcMotor.get("collector");
 
         ringStopperSensor = hardwareMap.get(DistanceSensor.class,"ringStopperSensor");
-        distanceColor = hardwareMap.get(ColorSensor.class, "ringStopperSensor");
 
         launcherR = hardwareMap.get(DcMotorEx.class,"launcherR");
         launcherL = hardwareMap.get(DcMotorEx.class,"launcherL");
@@ -185,7 +181,6 @@ public class TeleOpMain extends OpMode {
         startY = Double.parseDouble(array[1]);
         startOrientation = Double.parseDouble(array[2]);
 
-
         telemetry.addData("StartingPostionX", startX);
         telemetry.addData("StartingPostionY", startY);
         telemetry.addData("StartingOrientation", startOrientation);
@@ -198,11 +193,6 @@ public class TeleOpMain extends OpMode {
     public void init_loop() {
         gyroAngles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
         telemetry.addData("1", "Integrated Heading: " + getIntegratedHeading());
-        telemetry.addData("ring sensor data: ", ringStopperSensor.getDistance(DistanceUnit.CM));
-        telemetry.addData("ring sensor ALPHA: ", distanceColor.alpha());
-        telemetry.addData("ring sensor RED: ", distanceColor.red());
-        telemetry.addData("ring sensor BLUE: ", distanceColor.blue());
-        telemetry.addData("ring sensor GREEN: ", distanceColor.green());
 //        telemetry.addData("2", "heading: " + globalPositionUpdate.returnOrientation());
 //        telemetry.addData("StartingPostionX", globalPositionUpdate.returnXCoordinate()/COUNTS_PER_INCH);
 //        telemetry.addData("StartingPostionY", globalPositionUpdate.returnYCoordinate()/COUNTS_PER_INCH);
@@ -220,7 +210,7 @@ public class TeleOpMain extends OpMode {
     @Override
     public void start() {
         runtime.reset();
-        globalPositionUpdate = new OdometryGlobalCoordinatePosition(verticalLeft, verticalRight, horizontal, COUNTS_PER_INCH, 75, startX, startY, startOrientation);
+        globalPositionUpdate = new OdometryGlobalCoordinatePosition(verticalLeft, verticalRight, horizontal, COUNTS_PER_INCH, 75, 0,0,0);//startX, startY, startOrientation);
         positionThread = new Thread(globalPositionUpdate);
 
         positionThread.start();
@@ -235,6 +225,19 @@ public class TeleOpMain extends OpMode {
 
         gyroAngles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
 
+        if(gamepad1.dpad_up){
+            correctOdometry(8.5, 135.5);//remote upper left corner
+        }
+        else if(gamepad1.dpad_right){
+            correctOdometry(135.5, 135.5);//remote upper right corner
+        }
+        else if(gamepad1.dpad_left)
+        {
+            correctOdometry(8.5, 8.5);//remot1e lower left corner
+        }
+        else if(gamepad1.dpad_down){
+            correctOdometry(135.5,8.5);//remote lower right corner
+        }
         if(gamepad2.left_bumper){
             collectorWheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
             collectorWheel.setPower(-1);
@@ -282,16 +285,16 @@ public class TeleOpMain extends OpMode {
 //        }
 
         if (gamepad2.dpad_down){
-            launcherAngleR.setPosition(.25);
-            launcherAngle.setPosition(.25);
+            launcherAngleR.setPosition(.33);
+            launcherAngle.setPosition(.33);
         }
         if (gamepad2.dpad_left){
-            launcherAngleR.setPosition(.35);
-            launcherAngle.setPosition(.35);
+            launcherAngleR.setPosition(.3);
+            launcherAngle.setPosition(.3);
         }
         if (gamepad2.dpad_up){
-            launcherAngleR.setPosition(.42);
-            launcherAngle.setPosition(.42);
+            launcherAngleR.setPosition(.36);
+            launcherAngle.setPosition(.36);
         }
         if(gamepad2.dpad_right){
             if(ringStopperCanToggle) //make sure that the code doesn't just toggle the thing every iteration as long as the trigger's held
@@ -405,6 +408,14 @@ public class TeleOpMain extends OpMode {
 //
 //        }
 
+
+//        if(gamepad1.left_bumper){
+//            stopSensor = true;
+//        }
+//        if(gamepad1.right_bumper){
+//            stopSensor = false;
+//        }// stop distance sensor movements to run manual
+
         if(gamepad2.b)
         {
             if(gripCanToggle) //make sure that the code doesn't just toggle the thing every iteration as long as the x is held
@@ -419,8 +430,7 @@ public class TeleOpMain extends OpMode {
                 //if the launcher isn't currently running, run this code to turn it on:
                 else
                 {
-                    grip(true); //grip
-                    isWobble = true;
+                    grip(true); //turn on the launcher motor
                     gripToggle=true; //remember that the launcher motor has been turned on
                 }
             }
@@ -627,7 +637,6 @@ public class TeleOpMain extends OpMode {
         telemetry.addData("Robot angle: ", getIntegratedHeading());
         telemetry.addData("launcherL velocity: ", launcherL.getVelocity());
         telemetry.addData("launcherR velocity: ", launcherR.getVelocity());
-        telemetry.addData("ring sensor data: ", ringStopperSensor.getDistance(DistanceUnit.CM));
     }
 
 
@@ -785,9 +794,7 @@ public class TeleOpMain extends OpMode {
 
     @Override
     public void stop() {
-        if(globalPositionUpdate!=null) {
-            globalPositionUpdate.stop();
-        }
+        globalPositionUpdate.stop();
     }
 
     private double getIntegratedHeading() {
@@ -830,14 +837,13 @@ public class TeleOpMain extends OpMode {
         }
     }
     public void launch(){
-        launcherL.setVelocity(-1000);
-        launcherR.setVelocity(3000);//4250 accurate; too strong
+        launcherL.setVelocity(50);
+        launcherR.setVelocity(-25);
         islaunchRunning = true;
     }
     public void launchSetZero(){
         launcherL.setVelocity(0);
         launcherR.setVelocity(0);
-        islaunchRunning = false;
         islaunchRunning = false;
     }
      public void moveCollectorWheel()
@@ -846,5 +852,17 @@ public class TeleOpMain extends OpMode {
          collectorWheel.setMode(DcMotor.RunMode.RUN_TO_POSITION);
          collectorWheel.setPower(-1);
      }
+    public void correctOdometry(double cornerX, double cornerY){
+        globalPositionUpdate.stop();
+        verticalLeft.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        verticalRight.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        horizontal.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 
+        verticalLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        verticalRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        horizontal.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        globalPositionUpdate = new OdometryGlobalCoordinatePosition(verticalLeft, verticalRight, horizontal, COUNTS_PER_INCH, 75, cornerX, cornerY, 0);
+        positionThread = new Thread(globalPositionUpdate);
+        positionThread.start();
+    }
 }

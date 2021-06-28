@@ -34,54 +34,50 @@ import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.DigitalChannel;
-import com.qualcomm.robotcore.hardware.DistanceSensor;
-import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import com.qualcomm.robotcore.util.ReadWriteFile;
 
-import org.firstinspires.ftc.robotcore.external.ClassFactory;
-import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
-import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.VuforiaLocalizer;
-import org.firstinspires.ftc.robotcore.external.tfod.Recognition;
-import org.firstinspires.ftc.robotcore.external.tfod.TFObjectDetector;
-import org.firstinspires.ftc.robotcore.internal.system.AppUtil;
-
-import java.io.File;
-import java.util.List;
-
-
-/**
- * This 2020-2021 OpMode illustrates the basics of using the TensorFlow Object Detection API to
- * determine the position of the Ultimate Goal game elements.
- *
- * Use Android Studio to Copy this Class, and Paste it into your team's code folder with a new name.
- * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list.
- *
- * IMPORTANT: In order to use this OpMode, you need to obtain your own Vuforia license key as
- * is explained below.
- */
-@Autonomous(name = "LauncherTesting", group = "TFOdometry")
+@Autonomous(name = "EncoderWobble", group = "TFOdometry")
 @Disabled
-public class LauncherTesting extends LinearOpMode {
-    DcMotor launcherL, launcherR;
+public class WobbleArmRunByEncoder extends LinearOpMode {
+    private ElapsedTime timer = new ElapsedTime(ElapsedTime.Resolution.SECONDS);
+    DcMotor brMotor;
+    CRServo wobbleArmHingeL, wobbleArmHingeR;
+
     @Override
     public void runOpMode() {
-       launcherL= hardwareMap.dcMotor.get("launcherL");
-       launcherR= hardwareMap.dcMotor.get("launcherR");
+        initDriveHardwareMap();
+        timer.reset();
         if (opModeIsActive()) { // Linear OpMode
-           launcherL.setPower(.9);
-           launcherR.setPower(.9);
-            sleep(1000);
-            launcherL.setPower(0);
-            launcherR.setPower(0);
-
-
+            hinge(true);
         }
+    }
+    private void initDriveHardwareMap(){
+        wobbleArmHingeL = hardwareMap.crservo.get("HingeL");// hardware map initialize cr servo to hardware name
+        wobbleArmHingeR = hardwareMap.crservo.get("HingeR");
+        brMotor = hardwareMap.dcMotor.get("backright");//encoder calling from hardware motor
+        brMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);//reset encoder motor
+        brMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);//don't run using the motor's encoder
+    }
 
+    public void hinge(boolean p)
+    {
+        if (p)// bring down arm
+        {
+            while(opModeIsActive()&&!(brMotor.getCurrentPosition()>-2900&&brMotor.getCurrentPosition()<-2500)) /*find threshold for when wobble goal arm is not down; don't want arm to be all the way down*/ {
+                wobbleArmHingeL.setPower(-1);
+                wobbleArmHingeR.setPower(1);
+            }
+            wobbleArmHingeL.setPower(0) ;
+            wobbleArmHingeR.setPower(0);
+        }
+        else {//bring arm back up
+            while(opModeIsActive()&&!(brMotor.getCurrentPosition()<-500&&brMotor.getCurrentPosition()>-900)) /*find threshold for when wobble goal arm is not up*/ {
+                wobbleArmHingeL.setPower(1);
+                wobbleArmHingeR.setPower(-1);
+            }
+            wobbleArmHingeL.setPower(0);
+            wobbleArmHingeR.setPower(0);
+        }
     }
 
 }
